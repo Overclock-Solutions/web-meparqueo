@@ -1,0 +1,64 @@
+:root {
+	font-family: "Roboto", system-ui, sans-serif;
+	--header-height: 115px;
+	--primary-color: #0b7285;
+	--secondary-color: #25262b;
+	--tertiary-color: #e9ecef;
+	--quaternary-color: #ffffff;
+	--text-color1: #0b7285;
+	--text-color2: #ffffff;
+	--text-color3: #4d4d4d;
+	--text-color4: #000000;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+* {
+	margin: 0;
+	padding: 0;
+}
+
+html,
+body {
+	height: 100%;
+	font-family: var(--font-family);
+}
+
+body {
+	line-height: 1.5;
+	-webkit-font-smoothing: antialiased;
+}
+
+img,
+picture,
+video,
+canvas,
+svg {
+	display: block;
+	max-width: 100%;
+}
+
+input,
+button,
+textarea,
+select {
+	font: inherit;
+}
+
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	overflow-wrap: break-word;
+}
+
+#__next {
+	isolation: isolate;
+}
