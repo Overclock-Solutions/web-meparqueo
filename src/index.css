@@ -1,5 +1,5 @@
 :root {
-	font-family: "Roboto", system-ui, sans-serif;
+	--font-family: "Roboto", system-ui, sans-serif;
 	--header-height: 115px;
 	--primary-color: #0b7285;
 	--secondary-color: #25262b;
