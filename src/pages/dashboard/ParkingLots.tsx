@@ -459,6 +459,7 @@ const ParkingLots = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_, { open: openHistoryDrawer, close: closeHistoryDrawer }] =
     useDisclosure(false);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
 
   // Formulario
   const form = useForm<ParkingLot>({
@@ -526,6 +527,8 @@ const ParkingLots = () => {
 
   const handleSubmit = async (values: ParkingLot) => {
     try {
+      setIsUploadingImages(true); // Activar estado de carga
+
       if (imageState.toDelete.length > 0) {
         await Promise.all(
           imageState.toDelete.map((key) =>
@@ -533,32 +536,31 @@ const ParkingLots = () => {
           ),
         );
       }
-      // Construir la lista final de imágenes según el orden definido en orderedImages
+
+      // Subir nuevas imágenes
       const finalImages = await Promise.all(
         orderedImages.map(async (img) => {
-          if (!img.isNew) {
-            return img;
-          } else {
-            const formData = new FormData();
-            formData.append('file', img.file!);
-            formData.append('path', 'parking-lots');
-            const response = await api.post(
-              API_ENDPOINTS.files.upload,
-              formData,
-            );
-            return response.data.data;
-          }
+          if (!img.isNew) return img;
+
+          const formData = new FormData();
+          formData.append('file', img.file!);
+          formData.append('path', 'parking-lots');
+          const response = await api.post(API_ENDPOINTS.files.upload, formData);
+          return response.data.data;
         }),
       );
+
       const parkingLotData = sanitizeParkingLotData({
         ...values,
         images: finalImages,
       });
+
       if (editMode && values.id) {
         await updateParkingLot(values.id, parkingLotData);
       } else {
         await createParkingLot(parkingLotData);
       }
+
       notifications.show({
         title: 'Éxito',
         message: `Parqueadero ${editMode ? 'actualizado' : 'creado'} correctamente`,
@@ -572,6 +574,8 @@ const ParkingLots = () => {
         message: 'Ocurrió un error procesando la solicitud',
         color: 'red',
       });
+    } finally {
+      setIsUploadingImages(false);
     }
   };
 
@@ -814,7 +818,10 @@ const ParkingLots = () => {
             <Button variant="default" onClick={closeForm}>
               Cancelar
             </Button>
-            <Button type="submit" loading={loading.create || loading.update}>
+            <Button
+              type="submit"
+              loading={loading.create || loading.update || isUploadingImages}
+            >
               {editMode ? 'Actualizar' : 'Guardar'}
             </Button>
           </Group>
