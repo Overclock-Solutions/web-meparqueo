@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   MantineReactTable,
   useMantineReactTable,
@@ -64,18 +70,10 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-// Subcomponent: Debounced Number Input
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const DebouncedNumberInput = ({ value, onChange, ...props }: any) => {
-  const [localValue, setLocalValue] = useState(value);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => onChange(localValue), 500);
-    return () => clearTimeout(timeout);
-  }, [localValue, onChange]);
-
-  return <NumberInput value={localValue} onChange={setLocalValue} {...props} />;
-};
+// Importar mapbox-gl y configurar token
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
 // Subcomponent: Image Preview (memoized)
 const ImagePreview = React.memo(
@@ -120,15 +118,8 @@ const SortableImagePreview = ({
   onRemove: () => void;
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({
-      id: image.key,
-    });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
+    useSortable({ id: image.key });
+  const style = { transform: CSS.Transform.toString(transform), transition };
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <ImagePreview image={image} onRemove={onRemove} />
@@ -136,7 +127,71 @@ const SortableImagePreview = ({
   );
 };
 
-// Subcomponent: Form Fields (memoized)
+// Componente MapSelector
+const MapSelector = React.memo(
+  ({
+    initialLocation,
+    onLocationSelect,
+  }: {
+    initialLocation: { lat: number; lng: number };
+    onLocationSelect: (location: { lat: number; lng: number }) => void;
+  }) => {
+    const mapContainerRef = useRef<HTMLDivElement>(null);
+    const mapRef = useRef<mapboxgl.Map | null>(null);
+    const markerRef = useRef<mapboxgl.Marker | null>(null);
+
+    useEffect(() => {
+      if (mapContainerRef.current && !mapRef.current) {
+        mapRef.current = new mapboxgl.Map({
+          container: mapContainerRef.current,
+          style: 'mapbox://styles/mapbox/streets-v11',
+          center: [initialLocation.lng, initialLocation.lat],
+          zoom: 17,
+        });
+        mapRef.current.addControl(
+          new mapboxgl.NavigationControl(),
+          'top-right',
+        );
+
+        markerRef.current = new mapboxgl.Marker({ draggable: true })
+          .setLngLat([initialLocation.lng, initialLocation.lat])
+          .addTo(mapRef.current);
+
+        // Solo actualizar cuando se haga dragend
+        markerRef.current.on('dragend', () => {
+          const lngLat = markerRef.current?.getLngLat();
+          if (lngLat) {
+            onLocationSelect({ lat: lngLat.lat, lng: lngLat.lng });
+          }
+        });
+      }
+      // No actualizamos el marcador cuando cambien las coordenadas para evitar "flyTo" durante zoom
+      return () => {
+        if (mapRef.current) {
+          mapRef.current.remove();
+          mapRef.current = null;
+          markerRef.current = null;
+        }
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Solo se ejecuta al montar
+
+    return (
+      <div
+        ref={mapContainerRef}
+        style={{
+          width: '100%',
+          height: 250,
+          borderRadius: 8,
+          overflow: 'hidden',
+          marginBottom: 16,
+        }}
+      />
+    );
+  },
+);
+
+// Subcomponent: Form Fields (memoized) sin inputs manuales para lat/long y con MapSelector integrado
 const FormFields = React.memo(
   ({
     form,
@@ -146,76 +201,93 @@ const FormFields = React.memo(
     form: ReturnType<typeof useForm<ParkingLot>>;
     owners: User[];
     nodes: Node[];
-  }) => (
-    <>
-      <TextInput label="Código" {...form.getInputProps('code')} mb="sm" />
-      <TextInput label="Nombre" {...form.getInputProps('name')} mb="sm" />
-      <Textarea label="Dirección" {...form.getInputProps('address')} mb="sm" />
-      <DebouncedNumberInput
-        label="Latitud"
-        {...form.getInputProps('latitude')}
-        mb="sm"
-        precision={6}
-      />
-      <DebouncedNumberInput
-        label="Longitud"
-        {...form.getInputProps('longitude')}
-        mb="sm"
-        precision={6}
-      />
-      <Select
-        label="Propietario"
-        data={owners.map((owner) => ({
-          value: owner.id,
-          label: `${owner.person?.names} ${owner.person?.lastNames}`,
-        }))}
-        {...form.getInputProps('ownerId')}
-        mb="sm"
-      />
-      <MultiSelect
-        label="Nodos asociados"
-        data={nodes.map((node) => ({
-          value: node.id || '',
-          label: `${node.code} - ${node.version}`,
-        }))}
-        {...form.getInputProps('nodeIds')}
-        mb="sm"
-        searchable
-        clearable
-      />
-      <NumberInput
-        label="Precio por hora"
-        {...form.getInputProps('price')}
-        mb="sm"
-        min={0}
-      />
-      <TextInput
-        label="Teléfono"
-        {...form.getInputProps('phoneNumber')}
-        mb="sm"
-      />
-      <MultiSelect
-        label="Métodos de pago"
-        data={[
-          { label: 'Efectivo', value: 'CASH' },
-          { label: 'Tarjeta', value: 'CARD' },
-          { label: 'Transferencia', value: 'TRANSFER' },
-        ]}
-        {...form.getInputProps('paymentMethods')}
-        mb="sm"
-      />
-      <MultiSelect
-        label="Servicios"
-        data={[
-          { label: 'Vigilancia', value: 'SECURITY' },
-          { label: 'Cubierto', value: 'COVERED' },
-          { label: 'Lavado', value: 'CAR_WASH' },
-        ]}
-        {...form.getInputProps('services')}
-        mb="sm"
-      />
-    </>
-  ),
+  }) => {
+    const handleLocationChange = useCallback(
+      (loc: { lat: number; lng: number }) => {
+        form.setFieldValue('latitude', loc.lat);
+        form.setFieldValue('longitude', loc.lng);
+      },
+      [form],
+    );
+
+    return (
+      <>
+        <TextInput label="Código" {...form.getInputProps('code')} mb="sm" />
+        <TextInput label="Nombre" {...form.getInputProps('name')} mb="sm" />
+        <Textarea
+          label="Dirección"
+          {...form.getInputProps('address')}
+          mb="sm"
+        />
+        <Text weight={500} mb="xs">
+          Seleccionar Ubicación
+        </Text>
+        {/* Mapa integrado para elegir ubicación */}
+        <MapSelector
+          initialLocation={{
+            lat: form.values.latitude || 8.746125,
+            lng: form.values.longitude || -75.878538,
+          }}
+          onLocationSelect={handleLocationChange}
+        />
+        <Group mb="sm">
+          <Text size="sm">Latitud: {form.values.latitude.toFixed(6)}</Text>
+          <Text size="sm">Longitud: {form.values.longitude.toFixed(6)}</Text>
+        </Group>
+        <Select
+          label="Propietario"
+          data={owners.map((owner) => ({
+            value: owner.id,
+            label: `${owner.person?.names} ${owner.person?.lastNames}`,
+          }))}
+          {...form.getInputProps('ownerId')}
+          mb="sm"
+        />
+        <MultiSelect
+          label="Nodos asociados"
+          data={nodes.map((node) => ({
+            value: node.id || '',
+            label: `${node.code} - ${node.version}`,
+          }))}
+          {...form.getInputProps('nodeIds')}
+          mb="sm"
+          searchable
+          clearable
+        />
+        <NumberInput
+          label="Precio por hora"
+          {...form.getInputProps('price')}
+          mb="sm"
+          min={0}
+        />
+        <TextInput
+          label="Teléfono"
+          {...form.getInputProps('phoneNumber')}
+          mb="sm"
+        />
+        <MultiSelect
+          label="Métodos de pago"
+          data={[
+            { label: 'Efectivo', value: 'CASH' },
+            { label: 'Tarjeta', value: 'CARD' },
+            { label: 'Transferencia', value: 'TRANSFER' },
+          ]}
+          {...form.getInputProps('paymentMethods')}
+          mb="sm"
+        />
+        <MultiSelect
+          label="Servicios"
+          data={[
+            { label: 'Vigilancia', value: 'SECURITY' },
+            { label: 'Cubierto', value: 'COVERED' },
+            { label: 'Lavado', value: 'CAR_WASH' },
+          ]}
+          {...form.getInputProps('services')}
+          mb="sm"
+        />
+      </>
+    );
+  },
 );
 
 const ParkingLots = () => {
@@ -229,28 +301,25 @@ const ParkingLots = () => {
     deleteParkingLot,
     clearError,
   } = useParkingLotStore();
-
   const { users: usersStore, getUsers, getUsersByRole } = useUserStore();
   const { nodes, getNodes } = useNodeStore();
 
-  // Estado para imágenes separando las que ya están y las que se subirán (para lógica interna)
+  // Estado para imágenes
   const [imageState, setImageState] = useState<{
     existing: { key: string; url: string }[];
     toUpload: File[];
     toDelete: string[];
   }>({ existing: [], toUpload: [], toDelete: [] });
-
-  // Nuevo estado para mantener el orden de las imágenes (combinando existentes y nuevas)
+  // Estado para mantener orden de imágenes
   const [orderedImages, setOrderedImages] = useState<
     { key: string; url: string; isNew: boolean; file?: File }[]
   >([]);
-
   const [opened, { open, close }] = useDisclosure(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedParkingLot, setSelectedParkingLot] =
     useState<ParkingLot | null>(null);
 
-  // Memoized form values and validations
+  // Formulario
   const form = useForm<ParkingLot>({
     initialValues: useMemo(
       () => ({
@@ -258,8 +327,8 @@ const ParkingLots = () => {
         code: '',
         name: '',
         address: '',
-        latitude: 0,
-        longitude: 0,
+        latitude: 8.746125,
+        longitude: -75.878538,
         price: 0,
         phoneNumber: '',
         status: ParkingLotStatus.OPEN,
@@ -282,7 +351,6 @@ const ParkingLots = () => {
     ),
   });
 
-  // Load initial data in parallel
   useEffect(() => {
     const loadInitialData = async () => {
       try {
@@ -300,11 +368,9 @@ const ParkingLots = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Memoize owners based on usersStore
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const owners = useMemo(() => getUsersByRole(Role.OWNER), [usersStore]);
 
-  // Show errors as notifications
   useEffect(() => {
     if (errors.length > 0) {
       errors.forEach((error) => {
@@ -315,13 +381,10 @@ const ParkingLots = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [errors]);
 
-  // Configurar sensors para dnd kit
   const sensors = useSensors(useSensor(PointerSensor));
 
-  // Submit handler: se encarga de subir nuevas imágenes, combinar imágenes existentes y actualizar
   const handleSubmit = async (values: ParkingLot) => {
     try {
-      // Si hay imágenes marcadas para eliminar (de imágenes existentes) se eliminan primero.
       if (imageState.toDelete.length > 0) {
         await Promise.all(
           imageState.toDelete.map((key) =>
@@ -329,15 +392,12 @@ const ParkingLots = () => {
           ),
         );
       }
-
-      // Construir la lista final de imágenes en el orden definido por orderedImages.
+      // Construir la lista final de imágenes según el orden definido en orderedImages
       const finalImages = await Promise.all(
         orderedImages.map(async (img) => {
           if (!img.isNew) {
-            // Imagen existente (ya fue subida previamente y no se eliminó)
             return img;
           } else {
-            // Imagen nueva: se sube y se utiliza la respuesta
             const formData = new FormData();
             formData.append('file', img.file!);
             formData.append('path', 'parking-lots');
@@ -349,24 +409,20 @@ const ParkingLots = () => {
           }
         }),
       );
-
       const parkingLotData = sanitizeParkingLotData({
         ...values,
         images: finalImages,
       });
-
       if (editMode && values.id) {
         await updateParkingLot(values.id, parkingLotData);
       } else {
         await createParkingLot(parkingLotData);
       }
-
       notifications.show({
         title: 'Éxito',
         message: `Parqueadero ${editMode ? 'actualizado' : 'creado'} correctamente`,
         color: 'teal',
       });
-
       closeForm();
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
@@ -378,41 +434,29 @@ const ParkingLots = () => {
     }
   };
 
-  // Actualiza el estado de imágenes y genera previsualizaciones para nuevos archivos
   const handleImageUpdate = useCallback((newFiles: File[]) => {
-    // Para cada nuevo archivo se genera la previsualización y se marca como "isNew"
     const newPreviews = newFiles.map((file) => ({
       key: `preview-${Date.now()}-${file.name}`,
       url: URL.createObjectURL(file),
       isNew: true,
       file,
     }));
-
-    // Actualiza la lógica interna para subir: agrega los nuevos archivos
     setImageState((prev) => ({
       ...prev,
       toUpload: [...prev.toUpload, ...newFiles],
     }));
-
-    // Actualiza el orden de imágenes combinando las que ya existían con las nuevas
     setOrderedImages((prev) => [...prev, ...newPreviews]);
   }, []);
 
-  // Elimina una imagen tanto del listado ordenado como del estado interno
   const handleImageRemove = (key: string) => {
-    // Eliminar de orderedImages
     setOrderedImages((prev) => prev.filter((img) => img.key !== key));
-
-    // Verificar si la imagen es existente o nueva
     if (imageState.existing.find((img) => img.key === key)) {
-      // Si es existente, marcar para eliminar
       setImageState((prev) => ({
         ...prev,
         existing: prev.existing.filter((img) => img.key !== key),
         toDelete: [...prev.toDelete, key],
       }));
     } else {
-      // Si es nueva, eliminar de la lista de archivos a subir
       const removed = orderedImages.find((img) => img.key === key);
       if (removed && removed.isNew && removed.file) {
         setImageState((prev) => ({
@@ -423,7 +467,6 @@ const ParkingLots = () => {
     }
   };
 
-  // Reordenar imágenes al finalizar el drag and drop
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (active.id !== over?.id) {
@@ -435,7 +478,6 @@ const ParkingLots = () => {
     }
   };
 
-  // Al abrir en modo edición se cargan las imágenes existentes en orderedImages
   const openEdit = (parkingLot: ParkingLot) => {
     form.setValues({
       ...parkingLot,
@@ -452,7 +494,6 @@ const ParkingLots = () => {
     open();
   };
 
-  // Abrir en modo creación reinicia formularios y estados
   const openCreate = () => {
     form.reset();
     setImageState({ existing: [], toUpload: [], toDelete: [] });
@@ -464,10 +505,11 @@ const ParkingLots = () => {
   const closeForm = () => {
     close();
     form.reset();
+    setOrderedImages([]);
+    setImageState({ existing: [], toUpload: [], toDelete: [] });
     setSelectedParkingLot(null);
   };
 
-  // Eliminar parqueadero
   const handleDelete = async (id: string) => {
     await deleteParkingLot(id);
   };
@@ -476,7 +518,6 @@ const ParkingLots = () => {
     getParkingLots();
   };
 
-  // Table columns definition with memoized owners and nodes options
   const columns = useMemo<MRT_ColumnDef<ParkingLot>[]>(
     () => [
       { accessorKey: 'code', header: 'Código' },
@@ -562,7 +603,6 @@ const ParkingLots = () => {
         title="Parqueaderos"
         beforePath={[{ title: 'Dashboard', path: '/dashboard' }]}
       />
-
       <Box mb="sm">
         <Button
           leftIcon={<IconPlus />}
@@ -578,9 +618,7 @@ const ParkingLots = () => {
           </Button>
         </Tooltip>
       </Box>
-
       <MantineReactTable table={table} />
-
       <Drawer
         position="right"
         size="xl"
@@ -590,7 +628,6 @@ const ParkingLots = () => {
       >
         <form onSubmit={form.onSubmit(handleSubmit)}>
           <FormFields form={form} owners={owners} nodes={nodes} />
-
           <FileInput
             label="Imágenes"
             multiple
@@ -603,8 +640,6 @@ const ParkingLots = () => {
               }
             }}
           />
-
-          {/* Envolver las previsualizaciones en DndContext para permitir reordenar */}
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -625,7 +660,6 @@ const ParkingLots = () => {
               </Group>
             </SortableContext>
           </DndContext>
-
           <Group align="end" mt="md">
             <Button variant="default" onClick={closeForm}>
               Cancelar
@@ -636,7 +670,6 @@ const ParkingLots = () => {
           </Group>
         </form>
       </Drawer>
-
       <Dialog
         opened={!!selectedParkingLot}
         onClose={() => setSelectedParkingLot(null)}
