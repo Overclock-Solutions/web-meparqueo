@@ -656,10 +656,6 @@ const ParkingLots = () => {
     setSelectedParkingLot(null);
   };
 
-  const handleDelete = async (id: string) => {
-    await deleteParkingLot(id);
-  };
-
   const onRefresh = async () => {
     getParkingLots();
   };
@@ -720,7 +716,7 @@ const ParkingLots = () => {
               px={4}
               variant="default"
               size="xs"
-              onClick={() => handleDelete(row.original.id)}
+              onClick={() => setSelectedParkingLot(row.original)}
             >
               <IconTrash color="red" />
             </Button>
@@ -831,21 +827,25 @@ const ParkingLots = () => {
           setSelectedParkingLotId(null);
         }}
       />
+      {/* Reemplazar el Dialog existente con este: */}
       <Dialog
         opened={!!selectedParkingLot}
         onClose={() => setSelectedParkingLot(null)}
         withCloseButton
       >
-        <Text>¿Estás seguro de eliminar este parqueadero?</Text>
-        <Group align="end" mt="md">
-          <Button variant="default" onClick={() => setSelectedParkingLot(null)}>
-            Cancelar
-          </Button>
+        <Text>
+          ¿Estás seguro de eliminar el parqueadero {selectedParkingLot?.name}?
+        </Text>
+        <Group mt="md">
           <Button
             color="red"
-            onClick={() =>
-              selectedParkingLot && handleDelete(selectedParkingLot.id)
-            }
+            loading={loading.delete}
+            onClick={async () => {
+              if (selectedParkingLot) {
+                await deleteParkingLot(selectedParkingLot.id);
+                setSelectedParkingLot(null);
+              }
+            }}
           >
             Eliminar
           </Button>
