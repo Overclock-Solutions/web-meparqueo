@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { MantineProvider } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
-import { SocketContext, socket } from '../config/socket';
+import { SocketContext, socket } from '../service/socket';
 import 'typeface-roboto';
 
 const AppProviders = ({ children }: { children: ReactNode }) => {
