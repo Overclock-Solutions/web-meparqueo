@@ -29,4 +29,17 @@ export const API_ENDPOINTS = {
     update: (nodeId: string) => `/node/${nodeId}`,
     delete: (nodeId: string) => `/node/${nodeId}`,
   },
+  parkingLot: {
+    create: '/admin/parking-lot',
+    get: '/parking-lot',
+    getOne: (parkingLotId: string) => `/admin/parking-lot/${parkingLotId}`,
+    update: (parkingLotId: string) => `/admin/parking-lot/${parkingLotId}`,
+    delete: (parkingLotId: string) => `/admin/parking-lot/${parkingLotId}`,
+  },
+  files: {
+    upload: '/files/upload',
+    delete: '/files/delete',
+    getUrl: '/files/get-url',
+    getInfo: '/files/get-info',
+  },
 };

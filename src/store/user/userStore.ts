@@ -3,7 +3,7 @@ import { CreateUserDto, UpdateUserDto, UpdatePasswordDto } from './types';
 import api from '../../service/api';
 import { API_ENDPOINTS, ApiResponse } from '../../types/api';
 import { extractErrorMessage } from '../helpers';
-import { User } from '../models';
+import { Role, User } from '../models';
 
 interface UserStore {
   users: User[];
@@ -21,11 +21,12 @@ interface UserStore {
   updateUser: (id: string, dto: UpdateUserDto) => Promise<User>;
   deleteUser: (id: string) => Promise<void>;
   changePassword: (id: string, dto: UpdatePasswordDto) => Promise<User>;
+  getUsersByRole: (role: Role) => User[];
   resetState: () => void;
   clearError: () => void;
 }
 
-export const useUserStore = create<UserStore>((set) => ({
+export const useUserStore = create<UserStore>((set, get) => ({
   users: [],
   loading: {
     get: false,
@@ -186,6 +187,9 @@ export const useUserStore = create<UserStore>((set) => ({
       }));
       throw new Error(errMsg);
     }
+  },
+  getUsersByRole: (role: Role) => {
+    return get().users.filter((user) => user.role === role);
   },
   resetState: () => {
     set(() => ({

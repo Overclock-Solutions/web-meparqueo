@@ -65,7 +65,10 @@ const Nodes = () => {
     <>
       <HeadPage
         title="Nodos"
-        beforePath={[{ title: 'Dashboard', path: '/dashboard' }]}
+        beforePath={[
+          { title: 'Dashboard', path: '/dashboard' },
+          { title: 'Parqueaderos', path: '/dashboard/parqueaderos' },
+        ]}
       />
       <CrudModel<Node>
         model={{

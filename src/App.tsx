@@ -12,6 +12,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/dashboard';
 import Users from './pages/dashboard/Users';
 import Nodes from './pages/dashboard/Nodes';
+import ParkingLots from './pages/dashboard/ParkingLots';
 import Page404 from './pages/404';
 import Page401 from './pages/401';
 
@@ -47,6 +48,15 @@ function App() {
               <ProtectedRoute
                 allowedRoles={[Role.ADMIN]}
                 children={<Nodes />}
+              />
+            }
+          />
+          <Route
+            path="/dashboard/parqueaderos"
+            element={
+              <ProtectedRoute
+                allowedRoles={[Role.ADMIN]}
+                children={<ParkingLots />}
               />
             }
           />
