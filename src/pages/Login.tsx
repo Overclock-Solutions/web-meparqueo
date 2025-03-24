@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '../store/auth/authStore';
 import { notifications } from '@mantine/notifications';
-import { useNavigate } from 'react-router-dom';
 
 const AuthenticationTitle = () => {
-  const navigate = useNavigate();
   const [formData, setFormData] = useState({ email: '', password: '' });
   const { login, isAuthenticated, isLoading, errors, clearError } =
     useAuthStore();
@@ -25,7 +23,7 @@ const AuthenticationTitle = () => {
         color: 'green',
       });
       setTimeout(() => {
-        navigate('/dashboard');
+        window.location.href = '/dashboard';
       }, 1000);
     }
   }, [isAuthenticated]);

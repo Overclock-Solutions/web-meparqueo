@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import api from '../../service/api';
 import { API_ENDPOINTS, ApiResponse } from '../../types/api';
 import { extractErrorMessage } from '../helpers';
-import { ParkingLot, ParkingLotHistory } from '../models';
+import { ParkingLot, ParkingLotHistory, ParkingLotStatus } from '../models';
 import { ParkingLotDto, ParkingLotHistories } from './types';
 
 interface ParkingLotStore {
@@ -24,6 +24,8 @@ interface ParkingLotStore {
   ) => Promise<ParkingLot>;
   deleteParkingLot: (id: string) => Promise<void>;
   getHistory: (id: string) => Promise<ParkingLotHistory[]>;
+  addHistoryItem: (parkingLotId: string, item: ParkingLotHistory) => void;
+  setParkingLotStatus: (parkingLotId: string, status: ParkingLotStatus) => void;
   resetState: () => void;
   clearError: () => void;
 }
@@ -132,6 +134,21 @@ export const useParkingLotStore = create<ParkingLotStore>((set) => ({
       throw new Error(errMsg);
     }
   },
+  addHistoryItem: (parkingLotId, item) =>
+    set((state) => ({
+      histories: {
+        ...state.histories,
+        [parkingLotId]: {
+          records: [...(state.histories[parkingLotId]?.records || []), item],
+        },
+      },
+    })),
+  setParkingLotStatus: (parkingLotId, status) =>
+    set((state) => ({
+      parkingLots: state.parkingLots.map((lot) =>
+        lot.id === parkingLotId ? { ...lot, status } : lot,
+      ),
+    })),
   resetState: () => {
     set(() => ({
       parkingLots: [],

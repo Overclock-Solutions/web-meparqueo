@@ -1,5 +1,6 @@
 import React, {
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -60,6 +61,7 @@ import { API_ENDPOINTS } from '../../types/api';
 import api from '../../service/api';
 import HeadPage from '../../components/HeadPage';
 import { sanitizeParkingLotData } from '../../store/parkingLot/types';
+import { SocketContext } from '../../config/socket';
 
 // dnd kit imports
 import {
@@ -207,7 +209,15 @@ const HistoryDrawer = ({
   parkingLotId: string | null;
   onClose: () => void;
 }) => {
-  const { histories, loading, getHistory } = useParkingLotStore();
+  const {
+    histories,
+    loading,
+    getHistory,
+    addHistoryItem,
+    setParkingLotStatus,
+  } = useParkingLotStore();
+  const socket = useContext(SocketContext);
+  const timelineRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (parkingLotId && !histories[parkingLotId]) {
@@ -216,13 +226,40 @@ const HistoryDrawer = ({
     }
   }, [parkingLotId, histories, getHistory]);
 
+  useEffect(() => {
+    if (!parkingLotId) return;
+
+    // Escuchar actualizaciones en tiempo real
+    const handleStatusUpdate = (newHistory: ParkingLotHistory) => {
+      if (newHistory.parkingLotId === parkingLotId) {
+        addHistoryItem(parkingLotId, newHistory);
+        setParkingLotStatus(parkingLotId, newHistory.status);
+      }
+    };
+
+    socket.on('updateEstatus', handleStatusUpdate);
+
+    return () => {
+      socket.off('updateEstatus', handleStatusUpdate);
+    };
+  }, [parkingLotId, addHistoryItem, socket]);
+
   // Obtenemos el arreglo de ParkingLotHistory desde la propiedad "records"
-  const records: ParkingLotHistory[] =
-    parkingLotId &&
-    histories[parkingLotId] &&
-    'records' in histories[parkingLotId]
-      ? histories[parkingLotId].records
-      : [];
+  const records: ParkingLotHistory[] = useMemo(
+    () =>
+      parkingLotId &&
+      histories[parkingLotId] &&
+      'records' in histories[parkingLotId]
+        ? histories[parkingLotId].records
+        : [],
+    [parkingLotId, histories],
+  );
+
+  useEffect(() => {
+    if (timelineRef.current) {
+      timelineRef.current.scrollTop = 0;
+    }
+  }, [records]);
 
   console.log('History records for parkingLotId:', parkingLotId, records);
 
@@ -239,7 +276,10 @@ const HistoryDrawer = ({
       ) : records.length === 0 ? (
         <Text>No hay registros históricos</Text>
       ) : (
-        <div style={{ maxHeight: '80vh', overflowY: 'auto', padding: '16px' }}>
+        <div
+          ref={timelineRef}
+          style={{ maxHeight: '80vh', overflowY: 'auto', padding: '16px' }}
+        >
           <Timeline active={records.length} bulletSize={24} lineWidth={2}>
             {records
               .slice()

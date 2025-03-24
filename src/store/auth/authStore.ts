@@ -33,6 +33,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       );
       const { token, user } = response.data.data;
       localStorage.setItem('token', token);
+      localStorage.setItem('role', user.role);
+      window.dispatchEvent(new Event('storage'));
       // Actualizamos el estado con el usuario y la autenticación exitosa.
       set({ user, isAuthenticated: true, isLoading: false });
       return user;
@@ -68,6 +70,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
   logout: () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('role');
   },
   resetState: () => {
     set(() => ({
