@@ -34,6 +34,11 @@ import {
   IconRefresh,
   IconPencil,
   IconHistory,
+  IconX,
+  IconAlertCircle,
+  IconCar,
+  IconLockOpen,
+  IconLock,
 } from '@tabler/icons-react';
 import { useForm } from '@mantine/form';
 import { useDisclosure } from '@mantine/hooks';
@@ -224,10 +229,10 @@ const HistoryDrawer = ({
   return (
     <Drawer
       position="right"
-      size="xl"
+      size="sm"
       opened={!!parkingLotId}
       onClose={onClose}
-      title="Historial"
+      title="Historial de cambios"
     >
       {loading.getHistory ? (
         <Text>Cargando...</Text>
@@ -235,43 +240,46 @@ const HistoryDrawer = ({
         <Text>No hay registros históricos</Text>
       ) : (
         <div style={{ maxHeight: '80vh', overflowY: 'auto', padding: '16px' }}>
-          <Timeline active={records.length} bulletSize={10} lineWidth={2}>
+          <Timeline active={records.length} bulletSize={24} lineWidth={2}>
             {records
               .slice()
               .reverse()
-              .map((record) => (
-                <Timeline.Item
-                  key={record.id}
-                  title={new Date(record.updatedAt).toLocaleString()}
-                  bullet={
-                    <div
-                      style={{
-                        width: 12,
-                        height: 12,
-                        borderRadius: '50%',
-                        backgroundColor: '#4dabf7',
-                        marginTop: 4,
-                      }}
-                    />
-                  }
-                >
-                  <Group spacing="xs" mb={4}>
-                    <Text size="sm">
-                      Estado:{' '}
-                      <Badge
-                        color={
-                          record.status === ParkingLotStatus.OPEN
-                            ? 'green'
-                            : 'red'
-                        }
-                      >
-                        {record.status}
-                      </Badge>
-                    </Text>
+              .map((record) => {
+                const statusIcon =
+                  record.status === ParkingLotStatus.OPEN ? (
+                    <IconLockOpen size={16} />
+                  ) : (
+                    <IconLock size={16} />
+                  );
 
-                    <Text size="sm">
-                      Disponibilidad:{' '}
+                const availabilityText = {
+                  [ParkingLotAvailability.MORE_THAN_FIVE]: 'Más de 5 puestos',
+                  [ParkingLotAvailability.LESS_THAN_FIVE]: 'Menos de 5 puestos',
+                  [ParkingLotAvailability.NO_AVAILABILITY]:
+                    'Sin disponibilidad',
+                }[record.availability];
+
+                const availabilityIcon = {
+                  [ParkingLotAvailability.MORE_THAN_FIVE]: (
+                    <IconCar size={16} color="green" />
+                  ),
+                  [ParkingLotAvailability.LESS_THAN_FIVE]: (
+                    <IconAlertCircle size={16} color="orange" />
+                  ),
+                  [ParkingLotAvailability.NO_AVAILABILITY]: (
+                    <IconX size={16} color="red" />
+                  ),
+                }[record.availability];
+
+                return (
+                  <Timeline.Item
+                    key={record.id}
+                    bullet={statusIcon}
+                    title={`Actualización - ${new Date(record.updatedAt).toLocaleDateString()}`}
+                  >
+                    <Group spacing="xs" mb={4} mt={-5}>
                       <Badge
+                        leftSection={availabilityIcon}
                         color={
                           record.availability ===
                           ParkingLotAvailability.NO_AVAILABILITY
@@ -281,19 +289,35 @@ const HistoryDrawer = ({
                               ? 'orange'
                               : 'green'
                         }
+                        variant="outline"
                       >
-                        {record.availability}
+                        {availabilityText}
                       </Badge>
-                    </Text>
-                  </Group>
 
-                  {record.id && (
-                    <Text size="sm" color="dimmed">
-                      id: {record.id}
+                      <Badge
+                        leftSection={statusIcon}
+                        color={
+                          record.status === ParkingLotStatus.OPEN
+                            ? 'green'
+                            : 'red'
+                        }
+                        variant="outline"
+                      >
+                        {record.status === ParkingLotStatus.OPEN
+                          ? 'Abierto'
+                          : 'Cerrado'}
+                      </Badge>
+                    </Group>
+
+                    <Text size="sm" color="dimmed" mt={4}>
+                      {new Date(record.updatedAt).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
                     </Text>
-                  )}
-                </Timeline.Item>
-              ))}
+                  </Timeline.Item>
+                );
+              })}
           </Timeline>
         </div>
       )}
@@ -803,8 +827,8 @@ const ParkingLots = () => {
       <HistoryDrawer
         parkingLotId={selectedParkingLotId}
         onClose={() => {
-          setSelectedParkingLotId(null);
           closeHistoryDrawer();
+          setSelectedParkingLotId(null);
         }}
       />
       <Dialog
