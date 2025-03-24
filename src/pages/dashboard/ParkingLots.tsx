@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   MantineReactTable,
   useMantineReactTable,
@@ -35,6 +35,7 @@ import { useUserStore } from '../../store/user/userStore';
 import { useNodeStore } from '../../store/node/nodeStore';
 import {
   GlobalStatus,
+  Node,
   ParkingLot,
   ParkingLotAvailability,
   ParkingLotStatus,
@@ -45,6 +46,135 @@ import { API_ENDPOINTS } from '../../types/api';
 import api from '../../service/api';
 import HeadPage from '../../components/HeadPage';
 import { sanitizeParkingLotData } from '../../store/parkingLot/types';
+
+// Subcomponent: Debounced Number Input
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const DebouncedNumberInput = ({ value, onChange, ...props }: any) => {
+  const [localValue, setLocalValue] = useState(value);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => onChange(localValue), 500);
+    return () => clearTimeout(timeout);
+  }, [localValue, onChange]);
+
+  return <NumberInput value={localValue} onChange={setLocalValue} {...props} />;
+};
+
+// Subcomponent: Image Preview (memoized)
+const ImagePreview = React.memo(
+  ({
+    image,
+    onRemove,
+  }: {
+    image: { key: string; url: string };
+    onRemove: () => void;
+  }) => (
+    <div style={{ position: 'relative', margin: 4 }}>
+      <img
+        src={image.url}
+        alt={image.key}
+        style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8 }}
+      />
+      <Button
+        variant="light"
+        color="red"
+        size="xs"
+        style={{
+          position: 'absolute',
+          top: 4,
+          right: 4,
+          padding: 2,
+          minWidth: 24,
+        }}
+        onClick={onRemove}
+      >
+        ×
+      </Button>
+    </div>
+  ),
+);
+
+// Subcomponent: Form Fields (memoized)
+const FormFields = React.memo(
+  ({
+    form,
+    owners,
+    nodes,
+  }: {
+    form: ReturnType<typeof useForm<ParkingLot>>;
+    owners: User[];
+    nodes: Node[];
+  }) => (
+    <>
+      <TextInput label="Código" {...form.getInputProps('code')} mb="sm" />
+      <TextInput label="Nombre" {...form.getInputProps('name')} mb="sm" />
+      <Textarea label="Dirección" {...form.getInputProps('address')} mb="sm" />
+      <DebouncedNumberInput
+        label="Latitud"
+        {...form.getInputProps('latitude')}
+        mb="sm"
+        precision={6}
+      />
+      <DebouncedNumberInput
+        label="Longitud"
+        {...form.getInputProps('longitude')}
+        mb="sm"
+        precision={6}
+      />
+      <Select
+        label="Propietario"
+        data={owners.map((owner) => ({
+          value: owner.id,
+          label: `${owner.person?.names} ${owner.person?.lastNames}`,
+        }))}
+        {...form.getInputProps('ownerId')}
+        mb="sm"
+      />
+      <MultiSelect
+        label="Nodos asociados"
+        data={nodes.map((node) => ({
+          value: node.id || '',
+          label: `${node.code} - ${node.version}`,
+        }))}
+        {...form.getInputProps('nodeIds')}
+        mb="sm"
+        searchable
+        clearable
+      />
+      <NumberInput
+        label="Precio por hora"
+        {...form.getInputProps('price')}
+        mb="sm"
+        min={0}
+      />
+      <TextInput
+        label="Teléfono"
+        {...form.getInputProps('phoneNumber')}
+        mb="sm"
+      />
+      <MultiSelect
+        label="Métodos de pago"
+        data={[
+          { label: 'Efectivo', value: 'CASH' },
+          { label: 'Tarjeta', value: 'CARD' },
+          { label: 'Transferencia', value: 'TRANSFER' },
+        ]}
+        {...form.getInputProps('paymentMethods')}
+        mb="sm"
+      />
+      <MultiSelect
+        label="Servicios"
+        data={[
+          { label: 'Vigilancia', value: 'SECURITY' },
+          { label: 'Cubierto', value: 'COVERED' },
+          { label: 'Lavado', value: 'CAR_WASH' },
+        ]}
+        {...form.getInputProps('services')}
+        mb="sm"
+      />
+    </>
+  ),
+);
 
 const ParkingLotsView = () => {
   const {
@@ -60,61 +190,79 @@ const ParkingLotsView = () => {
 
   const { users: usersStore, getUsers, getUsersByRole } = useUserStore();
   const { nodes, getNodes } = useNodeStore();
-  const [owners, setOwners] = useState<User[]>([]);
+
+  // Optimized image state: existing, files to upload, and keys to delete
+  const [imageState, setImageState] = useState<{
+    existing: { key: string; url: string }[];
+    toUpload: File[];
+    toDelete: string[];
+  }>({ existing: [], toUpload: [], toDelete: [] });
+
+  // Previews for new images (using URL.createObjectURL)
+  const [imagePreviews, setImagePreviews] = useState<
+    { key: string; url: string }[]
+  >([]);
 
   const [opened, { open, close }] = useDisclosure(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedParkingLot, setSelectedParkingLot] =
     useState<ParkingLot | null>(null);
-  const [files, setFiles] = useState<File[]>([]);
-  const [existingImages, setExistingImages] = useState<
-    { key: string; url: string }[]
-  >([]);
 
+  // Memoized form values and validations
   const form = useForm<ParkingLot>({
-    initialValues: {
-      id: '',
-      code: '',
-      name: '',
-      address: '',
-      latitude: 0,
-      longitude: 0,
-      price: 0,
-      phoneNumber: '',
-      status: ParkingLotStatus.OPEN,
-      paymentMethods: [],
-      services: [],
-      ownerId: '',
-      nodeIds: [],
-      availability: ParkingLotAvailability.NO_AVAILABILITY,
-      globalStatus: GlobalStatus.ACTIVE,
-    },
-
-    validate: {
-      code: (value) => (value.length < 3 ? 'Código muy corto' : null),
-      name: (value) => (value.length < 5 ? 'Nombre muy corto' : null),
-      ownerId: (value) => (!value ? 'Seleccione un propietario' : null),
-    },
+    initialValues: useMemo(
+      () => ({
+        id: '',
+        code: '',
+        name: '',
+        address: '',
+        latitude: 0,
+        longitude: 0,
+        price: 0,
+        phoneNumber: '',
+        status: ParkingLotStatus.OPEN,
+        paymentMethods: [],
+        services: [],
+        ownerId: '',
+        nodeIds: [],
+        availability: ParkingLotAvailability.NO_AVAILABILITY,
+        globalStatus: GlobalStatus.ACTIVE,
+      }),
+      [],
+    ),
+    validate: useMemo(
+      () => ({
+        code: (value) => (value.length < 3 ? 'Código muy corto' : null),
+        name: (value) => (value.length < 5 ? 'Nombre muy corto' : null),
+        ownerId: (value) => (!value ? 'Seleccione un propietario' : null),
+      }),
+      [],
+    ),
   });
 
+  // Load initial data in parallel
   useEffect(() => {
-    if (parkingLots.length === 0) {
-      getParkingLots();
-    }
-    if (usersStore.length === 0) {
-      getUsers();
-    }
-    if (nodes.length === 0) {
-      getNodes();
-    }
+    const loadInitialData = async () => {
+      try {
+        await Promise.all([
+          parkingLots.length === 0 && getParkingLots(),
+          usersStore.length === 0 && getUsers(),
+          nodes.length === 0 && getNodes(),
+        ]);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (error) {
+        notifications.show({ color: 'red', message: 'Error cargando datos' });
+      }
+    };
+    loadInitialData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    setOwners(getUsersByRole(Role.OWNER));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [usersStore]);
+  // Memoize owners based on usersStore
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const owners = useMemo(() => getUsersByRole(Role.OWNER), [usersStore]);
 
+  // Show errors as notifications
   useEffect(() => {
     if (errors.length > 0) {
       errors.forEach((error) => {
@@ -125,39 +273,30 @@ const ParkingLotsView = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [errors]);
 
-  const handleUploadImages = async () => {
-    const uploadedImages = [];
-    for (const file of files) {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('path', 'parking-lots');
-
-      const response = await api.post(API_ENDPOINTS.files.upload, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      uploadedImages.push(response.data.data);
-    }
-    return uploadedImages;
-  };
-
-  const handleDeleteImages = async (keys: string[]) => {
-    await Promise.all(
-      keys.map((key) => api.post(API_ENDPOINTS.files.delete, { fileId: key })),
-    );
-  };
-
+  // Optimized submit handler including image upload and deletion
   const handleSubmit = async (values: ParkingLot) => {
     try {
-      let images = existingImages;
+      // Upload new images
+      const uploadedImages = await Promise.all(
+        imageState.toUpload.map(async (file) => {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('path', 'parking-lots');
+          const response = await api.post(API_ENDPOINTS.files.upload, formData);
+          return response.data.data;
+        }),
+      );
 
-      if (files.length > 0) {
-        const newImages = await handleUploadImages();
-        images = [...existingImages, ...newImages];
-      }
+      const finalImages = [
+        ...imageState.existing.filter(
+          (img) => !imageState.toDelete.includes(img.key),
+        ),
+        ...uploadedImages,
+      ];
 
       const parkingLotData = sanitizeParkingLotData({
         ...values,
-        images,
+        images: finalImages,
       });
 
       if (editMode && values.id) {
@@ -183,20 +322,58 @@ const ParkingLotsView = () => {
     }
   };
 
+  // Update image state and generate previews when new files are added
+  const handleImageUpdate = useCallback(
+    (newFiles: File[], deletedKeys: string[] = []) => {
+      setImageState((prev) => ({
+        existing: prev.existing.filter((img) => !deletedKeys.includes(img.key)),
+        toUpload: [...prev.toUpload, ...newFiles],
+        toDelete: [...prev.toDelete, ...deletedKeys],
+      }));
+
+      const newPreviews = newFiles.map((file) => ({
+        key: `preview-${Date.now()}-${file.name}`,
+        url: URL.createObjectURL(file),
+      }));
+
+      setImagePreviews((prev) => [...prev, ...newPreviews]);
+    },
+    [],
+  );
+
+  // Remove an image from previews or existing images
+  const handleImageRemove = (key: string) => {
+    // If the image exists in the existing images, mark it for deletion
+    setImageState((prev) => ({
+      ...prev,
+      existing: prev.existing.filter((img) => img.key !== key),
+      toDelete: [...prev.toDelete, key],
+    }));
+    // Also remove from previews (for new uploads)
+    setImagePreviews((prev) => prev.filter((img) => img.key !== key));
+  };
+
+  // Open the form in edit mode with preloaded data and images
   const openEdit = (parkingLot: ParkingLot) => {
     form.setValues({
       ...parkingLot,
       nodeIds: parkingLot.nodeIds || [],
     });
-    setExistingImages(parkingLot.images || []);
+    setImageState({
+      existing: parkingLot.images || [],
+      toUpload: [],
+      toDelete: [],
+    });
+    setImagePreviews([]);
     setEditMode(true);
     open();
   };
 
+  // Open the form in create mode, resetting form and image states
   const openCreate = () => {
     form.reset();
-    setExistingImages([]);
-    setFiles([]);
+    setImageState({ existing: [], toUpload: [], toDelete: [] });
+    setImagePreviews([]);
     setEditMode(false);
     open();
   };
@@ -207,19 +384,16 @@ const ParkingLotsView = () => {
     setSelectedParkingLot(null);
   };
 
+  // Delete parking lot
   const handleDelete = async (id: string) => {
-    const parkingLot = parkingLots.find((p) => p.id === id);
-    if (parkingLot?.images?.length) {
-      await handleDeleteImages(parkingLot.images.map((img) => img.key));
-    }
     await deleteParkingLot(id);
   };
 
   const onRefresh = async () => {
     getParkingLots();
-    console.log(parkingLots[0].nodeIds);
   };
 
+  // Table columns definition with memoized owners and nodes options
   const columns = useMemo<MRT_ColumnDef<ParkingLot>[]>(
     () => [
       { accessorKey: 'code', header: 'Código' },
@@ -285,7 +459,7 @@ const ParkingLotsView = () => {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [owners],
+    [owners, nodes],
   );
 
   const table = useMantineReactTable({
@@ -317,7 +491,7 @@ const ParkingLotsView = () => {
         </Button>
         <Tooltip label="Actualizar registros">
           <Button onClick={onRefresh} mx={2} color="orange">
-            <IconRefresh className={loading.get ? `icon spinning ` : 'icon'} />
+            <IconRefresh className={loading.get ? 'icon spinning' : 'icon'} />
           </Button>
         </Tooltip>
       </Box>
@@ -332,130 +506,29 @@ const ParkingLotsView = () => {
         title={`${editMode ? 'Editar' : 'Nuevo'} Parqueadero`}
       >
         <form onSubmit={form.onSubmit(handleSubmit)}>
-          <TextInput label="Código" {...form.getInputProps('code')} mb="sm" />
-
-          <TextInput label="Nombre" {...form.getInputProps('name')} mb="sm" />
-
-          <Textarea
-            label="Dirección"
-            {...form.getInputProps('address')}
-            mb="sm"
-          />
-
-          <NumberInput
-            label="Latitud"
-            {...form.getInputProps('latitude')}
-            mb="sm"
-            precision={6}
-          />
-
-          <NumberInput
-            label="Longitud"
-            {...form.getInputProps('longitude')}
-            mb="sm"
-            precision={6}
-          />
-
-          <Select
-            label="Propietario"
-            data={owners.map((owner) => ({
-              value: owner.id,
-              label: `${owner.person?.names} ${owner.person?.lastNames}`,
-            }))}
-            {...form.getInputProps('ownerId')}
-            mb="sm"
-          />
-
-          <MultiSelect
-            label="Nodos asociados"
-            data={nodes.map((node) => ({
-              value: node.id || '',
-              label: `${node.code} - ${node.version}`,
-            }))}
-            {...form.getInputProps('nodeIds')}
-            mb="sm"
-            searchable
-            clearable
-          />
-
-          <NumberInput
-            label="Precio por hora"
-            {...form.getInputProps('price')}
-            mb="sm"
-            min={0}
-          />
-
-          <TextInput
-            label="Teléfono"
-            {...form.getInputProps('phoneNumber')}
-            mb="sm"
-          />
-
-          <MultiSelect
-            label="Métodos de pago"
-            data={[
-              { label: 'Efectivo', value: 'CASH' },
-              { label: 'Tarjeta', value: 'CARD' },
-              { label: 'Transferencia', value: 'TRANSFER' },
-            ]}
-            {...form.getInputProps('paymentMethods')}
-            mb="sm"
-          />
-
-          <MultiSelect
-            label="Servicios"
-            data={[
-              { label: 'Vigilancia', value: 'SECURITY' },
-              { label: 'Cubierto', value: 'COVERED' },
-              { label: 'Lavado', value: 'CAR_WASH' },
-            ]}
-            {...form.getInputProps('services')}
-            mb="sm"
-          />
+          <FormFields form={form} owners={owners} nodes={nodes} />
 
           <FileInput
             label="Imágenes"
             multiple
             accept="image/*"
-            onChange={setFiles}
             icon={<IconUpload size={18} />}
             mb="sm"
+            // When files are selected, update image state and create previews
+            onChange={(files) => {
+              if (files && files.length > 0) {
+                handleImageUpdate(files);
+              }
+            }}
           />
 
           <Group mb="lg">
-            {existingImages.map((image) => (
-              <div key={image.key} style={{ position: 'relative' }}>
-                <img
-                  src={image.url}
-                  alt={image.key}
-                  style={{
-                    width: 100,
-                    height: 100,
-                    objectFit: 'cover',
-                    borderRadius: 8,
-                    margin: 4,
-                  }}
-                />
-                <Button
-                  variant="light"
-                  color="red"
-                  size="xs"
-                  style={{
-                    position: 'absolute',
-                    top: 4,
-                    right: 4,
-                    padding: 2,
-                    minWidth: 24,
-                  }}
-                  onClick={() =>
-                    setExistingImages((prev) =>
-                      prev.filter((img) => img.key !== image.key),
-                    )
-                  }
-                >
-                  ×
-                </Button>
-              </div>
+            {[...imageState.existing, ...imagePreviews].map((image) => (
+              <ImagePreview
+                key={image.key}
+                image={image}
+                onRemove={() => handleImageRemove(image.key)}
+              />
             ))}
           </Group>
 
