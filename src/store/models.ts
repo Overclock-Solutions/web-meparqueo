@@ -4,13 +4,20 @@ export enum Role {
   USER = 'USER',
 }
 
+export enum GlobalStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  ARCHIVED = 'ARCHIVED',
+  DELETED = 'DELETED',
+}
+
 export interface User {
   id: string;
   email: string;
   password: string;
   role: Role;
   status?: string;
-  globalStatus?: string;
+  globalStatus?: GlobalStatus;
   createdAt: string;
   updatedAt: string;
   personId?: string | null;
@@ -25,5 +32,19 @@ export interface Person {
   phone?: string;
   cretedAt?: string;
   updatedAt?: string;
-  globalStatus?: string;
+  globalStatus?: GlobalStatus;
+}
+
+export enum NodeVersion {
+  BETA = 'BETA',
+  V1 = 'V1',
+  V2 = 'V2',
+}
+export interface Node {
+  id?: string;
+  code?: string;
+  version?: NodeVersion;
+  globalStatus?: GlobalStatus;
+  cretedAt?: string;
+  updatedAt?: string;
 }

@@ -92,7 +92,7 @@ export const useUserStore = create<UserStore>((set) => ({
     }));
     try {
       const response = await api.get<ApiResponse<User>>(
-        `${API_ENDPOINTS.user.getOne}/${id}`,
+        `${API_ENDPOINTS.user.getOne(id)}`,
       );
       const user = response.data.data;
       set((state) => ({
@@ -116,7 +116,7 @@ export const useUserStore = create<UserStore>((set) => ({
     }));
     try {
       const response = await api.patch<ApiResponse<User>>(
-        `${API_ENDPOINTS.user.update}/${id}`,
+        `${API_ENDPOINTS.user.update(id)}`,
         dto,
       );
       const updatedUser = response.data.data;
@@ -145,7 +145,7 @@ export const useUserStore = create<UserStore>((set) => ({
       errors: [],
     }));
     try {
-      await api.delete(`${API_ENDPOINTS.user.delete}/${id}`);
+      await api.delete(`${API_ENDPOINTS.user.delete(id)}`);
       set((state) => ({
         users: state.users.filter((user) => user.id !== id),
         loading: { ...state.loading, delete: false },
@@ -167,7 +167,7 @@ export const useUserStore = create<UserStore>((set) => ({
     }));
     try {
       const response = await api.patch<ApiResponse<User>>(
-        `${API_ENDPOINTS.user.changePassword}/${id}`,
+        `${API_ENDPOINTS.user.changePassword(id)}`,
         dto,
       );
       const updatedUser = response.data.data;

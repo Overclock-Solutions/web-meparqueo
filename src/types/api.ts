@@ -17,9 +17,16 @@ export const API_ENDPOINTS = {
   user: {
     create: '/user',
     get: '/user',
-    getOne: '/user',
-    update: '/user/update',
-    delete: '/user',
-    changePassword: '/user/change-password',
+    getOne: (userId: string) => `/user/${userId}`,
+    update: (userId: string) => `/user/update/${userId}`,
+    delete: (userId: string) => `/user/${userId}`,
+    changePassword: (userId: string) => `/user/change-password/${userId}`,
+  },
+  node: {
+    create: '/node',
+    get: '/node',
+    getOne: (nodeId: string) => `/node/${nodeId}`,
+    update: (nodeId: string) => `/node/${nodeId}`,
+    delete: (nodeId: string) => `/node/${nodeId}`,
   },
 };

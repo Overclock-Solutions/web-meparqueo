@@ -4,17 +4,18 @@ import {
   Routes,
   Outlet,
 } from 'react-router-dom';
+import { Role } from './store/models';
+import ProtectedRoute from './components/ProtectedRoute';
 
+import Sidenav from './components/Sidenav';
 import Login from './pages/Login';
+import Dashboard from './pages/dashboard';
+import Users from './pages/dashboard/Users';
+import Nodes from './pages/dashboard/Nodes';
 import Page404 from './pages/404';
 import Page401 from './pages/401';
 
 import './App.css';
-import Sidenav from './components/Sidenav';
-import Dashboard from './pages/dashboard';
-import Users from './pages/dashboard/Users';
-import { Role } from './store/models';
-import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
@@ -37,6 +38,15 @@ function App() {
               <ProtectedRoute
                 allowedRoles={[Role.ADMIN]}
                 children={<Users />}
+              />
+            }
+          />
+          <Route
+            path="/dashboard/nodos"
+            element={
+              <ProtectedRoute
+                allowedRoles={[Role.ADMIN]}
+                children={<Nodes />}
               />
             }
           />

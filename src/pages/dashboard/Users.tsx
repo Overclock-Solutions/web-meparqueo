@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import CrudModel from '../../components/CrudModel';
 import { useUserStore } from '../../store/user/userStore';
-import { Role, User } from '../../store/models';
+import { GlobalStatus, Role, User } from '../../store/models';
 import HeadPage from '../../components/HeadPage';
 import { notifications } from '@mantine/notifications';
 
@@ -44,6 +44,7 @@ const Users = () => {
       names: userData.person?.names || '',
       lastnames: userData.person?.lastNames || '',
       phone: userData.person?.phone || '',
+      globalStatus: userData.globalStatus,
     };
     await createUser(createDto);
   };
@@ -57,6 +58,7 @@ const Users = () => {
       names: userData.person?.names || '',
       lastNames: userData.person?.lastNames || '',
       phone: userData.person?.phone || '',
+      globalStatus: userData.globalStatus,
     };
     await updateUser(userData.id, updateDto);
   };
@@ -122,6 +124,18 @@ const Users = () => {
               searchable: true,
             },
             {
+              type: 'select',
+              accessorKey: 'globalStatus',
+              header: 'Estado',
+              options: [
+                { label: 'Activo', value: GlobalStatus.ACTIVE },
+                { label: 'Inactivo', value: GlobalStatus.INACTIVE },
+                { label: 'Archivado', value: GlobalStatus.ARCHIVED },
+              ],
+              required: true,
+              searchable: true,
+            },
+            {
               type: 'date',
               accessorKey: 'createdAt',
               header: 'Fecha de Creación',
@@ -130,12 +144,13 @@ const Users = () => {
           initialValues: {
             email: '',
             password: '',
-            role: Role.USER,
+            role: Role.OWNER,
             person: {
               names: '',
               lastNames: '',
               phone: '',
             },
+            globalStatus: GlobalStatus.ACTIVE,
           },
         }}
         data={users}
