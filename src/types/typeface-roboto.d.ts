@@ -1,1 +1,1 @@
-declare module "typeface-roboto";
+declare module 'typeface-roboto';

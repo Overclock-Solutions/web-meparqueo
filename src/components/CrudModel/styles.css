@@ -1,0 +1,48 @@
+.mantine-Drawer-inner {
+  z-index: 4000 !important;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.icon {
+  transition: transform 0.5s ease-in-out;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+.indicator {
+  position: relative;
+  display: inline-block;
+}
+
+.indicator .remove-button {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background-color: #e74a3b;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  padding: 3px;
+  width: 15px;
+  height: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1;
+  transition: background-color 0.3s;
+}
+
+.indicator .remove-button:hover {
+  background-color: #a33026;
+}
