@@ -4,6 +4,10 @@ import { useUserStore } from '../../store/user/userStore';
 import { GlobalStatus, Role, User } from '../../store/models';
 import HeadPage from '../../components/HeadPage';
 import { notifications } from '@mantine/notifications';
+import { Button, Drawer, PasswordInput } from '@mantine/core';
+import { IconPassword } from '@tabler/icons-react';
+import { useForm } from '@mantine/form';
+import { useDisclosure } from '@mantine/hooks';
 
 const Users = () => {
   const {
@@ -13,9 +17,14 @@ const Users = () => {
     getUsers,
     updateUser,
     deleteUser,
+    changePassword,
     errors,
     clearError,
   } = useUserStore();
+  const [
+    openedPanelUpdatePass,
+    { open: openPanelUpdatePass, close: closePanelUpdatePass },
+  ] = useDisclosure(false);
 
   useEffect(() => {
     if (users.length === 0) {
@@ -66,6 +75,56 @@ const Users = () => {
   const handleDelete = async (userData: Partial<User>) => {
     if (!userData.id) throw new Error('ID de usuario no proporcionado');
     return await deleteUser(userData.id);
+  };
+
+  const buttonUpdatePass = (user: User) => (
+    <Button
+      px={4}
+      variant="default"
+      size="xs"
+      onClick={() => handleUpdatePass(user)}
+    >
+      <IconPassword color="gray" />
+    </Button>
+  );
+
+  const form = useForm({
+    initialValues: {
+      id: '',
+      password: '',
+      confirmPassword: '',
+    },
+  });
+
+  const handleUpdatePass = (user: User) => {
+    form.setValues({
+      id: user.id,
+      password: '',
+      confirmPassword: '',
+    });
+    openPanelUpdatePass();
+  };
+
+  const handleSubmit = () => {
+    if (form.values.password === form.values.confirmPassword) {
+      changePassword(form.values.id, {
+        password: form.values.password,
+      }).then(() => {
+        notifications.show({
+          title: 'Éxito',
+          message: 'Contraseña actualizada correctamente',
+          color: 'green',
+        });
+        closePanelUpdatePass();
+        form.reset();
+      });
+    } else {
+      notifications.show({
+        title: 'Error',
+        message: 'Las contraseñas no coinciden',
+        color: 'red',
+      });
+    }
   };
 
   return (
@@ -164,7 +223,39 @@ const Users = () => {
         onRefresh={getUsers}
         successMessage="Operación exitosa"
         errorMessage="Error al procesar la solicitud"
+        customButtonAction={buttonUpdatePass}
       />
+
+      <Drawer
+        opened={openedPanelUpdatePass}
+        onClose={() => {
+          closePanelUpdatePass();
+          form.reset();
+        }}
+        title="Actualizar contraseña"
+        overlayProps={{ opacity: 0.5, blur: 1 }}
+        position="right"
+      >
+        <form onSubmit={form.onSubmit(handleSubmit)}>
+          <PasswordInput
+            key="password"
+            label="Contraseña"
+            {...form.getInputProps('password')}
+            required
+            mb={4}
+          />
+          <PasswordInput
+            key="confirmPassword"
+            label="Confirmacion"
+            {...form.getInputProps('confirmPassword')}
+            required
+            mb={4}
+          />
+          <Button loading={loading.update} type="submit" mt="md">
+            Actualizar contraseña
+          </Button>
+        </form>
+      </Drawer>
     </>
   );
 };
