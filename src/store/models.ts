@@ -101,3 +101,11 @@ export interface ParkingLot {
   nodeIds?: string[];
   nodes?: Node[];
 }
+
+export interface ParkingLotHistory {
+  id: string;
+  parkingLotId: string;
+  status: ParkingLotStatus;
+  availability: ParkingLotAvailability;
+  updatedAt: string;
+}

@@ -35,6 +35,8 @@ export const API_ENDPOINTS = {
     getOne: (parkingLotId: string) => `/admin/parking-lot/${parkingLotId}`,
     update: (parkingLotId: string) => `/admin/parking-lot/${parkingLotId}`,
     delete: (parkingLotId: string) => `/admin/parking-lot/${parkingLotId}`,
+    getHistory: (parkingLotId: string) =>
+      `admin/parking-lot/${parkingLotId}/history`,
   },
   files: {
     upload: '/files/upload',

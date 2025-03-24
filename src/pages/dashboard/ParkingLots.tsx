@@ -25,6 +25,7 @@ import {
   Group,
   Box,
   Tooltip,
+  Timeline,
 } from '@mantine/core';
 import {
   IconPlus,
@@ -32,6 +33,7 @@ import {
   IconUpload,
   IconRefresh,
   IconPencil,
+  IconHistory,
 } from '@tabler/icons-react';
 import { useForm } from '@mantine/form';
 import { useDisclosure } from '@mantine/hooks';
@@ -44,6 +46,7 @@ import {
   Node,
   ParkingLot,
   ParkingLotAvailability,
+  ParkingLotHistory,
   ParkingLotStatus,
   Role,
   User,
@@ -191,6 +194,113 @@ const MapSelector = React.memo(
   },
 );
 
+// Componente History
+const HistoryDrawer = ({
+  parkingLotId,
+  onClose,
+}: {
+  parkingLotId: string | null;
+  onClose: () => void;
+}) => {
+  const { histories, loading, getHistory } = useParkingLotStore();
+
+  useEffect(() => {
+    if (parkingLotId && !histories[parkingLotId]) {
+      console.log('Fetching history for parkingLotId:', parkingLotId);
+      getHistory(parkingLotId);
+    }
+  }, [parkingLotId, histories, getHistory]);
+
+  // Obtenemos el arreglo de ParkingLotHistory desde la propiedad "records"
+  const records: ParkingLotHistory[] =
+    parkingLotId &&
+    histories[parkingLotId] &&
+    'records' in histories[parkingLotId]
+      ? histories[parkingLotId].records
+      : [];
+
+  console.log('History records for parkingLotId:', parkingLotId, records);
+
+  return (
+    <Drawer
+      position="right"
+      size="xl"
+      opened={!!parkingLotId}
+      onClose={onClose}
+      title="Historial"
+    >
+      {loading.getHistory ? (
+        <Text>Cargando...</Text>
+      ) : records.length === 0 ? (
+        <Text>No hay registros históricos</Text>
+      ) : (
+        <div style={{ maxHeight: '80vh', overflowY: 'auto', padding: '16px' }}>
+          <Timeline active={records.length} bulletSize={10} lineWidth={2}>
+            {records
+              .slice()
+              .reverse()
+              .map((record) => (
+                <Timeline.Item
+                  key={record.id}
+                  title={new Date(record.updatedAt).toLocaleString()}
+                  bullet={
+                    <div
+                      style={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: '50%',
+                        backgroundColor: '#4dabf7',
+                        marginTop: 4,
+                      }}
+                    />
+                  }
+                >
+                  <Group spacing="xs" mb={4}>
+                    <Text size="sm">
+                      Estado:{' '}
+                      <Badge
+                        color={
+                          record.status === ParkingLotStatus.OPEN
+                            ? 'green'
+                            : 'red'
+                        }
+                      >
+                        {record.status}
+                      </Badge>
+                    </Text>
+
+                    <Text size="sm">
+                      Disponibilidad:{' '}
+                      <Badge
+                        color={
+                          record.availability ===
+                          ParkingLotAvailability.NO_AVAILABILITY
+                            ? 'red'
+                            : record.availability ===
+                                ParkingLotAvailability.LESS_THAN_FIVE
+                              ? 'orange'
+                              : 'green'
+                        }
+                      >
+                        {record.availability}
+                      </Badge>
+                    </Text>
+                  </Group>
+
+                  {record.id && (
+                    <Text size="sm" color="dimmed">
+                      id: {record.id}
+                    </Text>
+                  )}
+                </Timeline.Item>
+              ))}
+          </Timeline>
+        </div>
+      )}
+    </Drawer>
+  );
+};
+
 // Subcomponent: Form Fields (memoized) sin inputs manuales para lat/long y con MapSelector integrado
 const FormFields = React.memo(
   ({
@@ -318,6 +428,13 @@ const ParkingLots = () => {
   const [editMode, setEditMode] = useState(false);
   const [selectedParkingLot, setSelectedParkingLot] =
     useState<ParkingLot | null>(null);
+
+  const [selectedParkingLotId, setSelectedParkingLotId] = useState<
+    string | null
+  >(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_, { open: openHistoryDrawer, close: closeHistoryDrawer }] =
+    useDisclosure(false);
 
   // Formulario
   const form = useForm<ParkingLot>({
@@ -502,6 +619,11 @@ const ParkingLots = () => {
     open();
   };
 
+  const openHistory = (id: string) => {
+    setSelectedParkingLotId(id);
+    openHistoryDrawer();
+  };
+
   const closeForm = () => {
     close();
     form.reset();
@@ -577,6 +699,14 @@ const ParkingLots = () => {
               onClick={() => handleDelete(row.original.id)}
             >
               <IconTrash color="red" />
+            </Button>
+            <Button
+              px={4}
+              variant="default"
+              size="xs"
+              onClick={() => openHistory(row.original.id)}
+            >
+              <IconHistory color="blue" />
             </Button>
           </Button.Group>
         ),
@@ -670,6 +800,13 @@ const ParkingLots = () => {
           </Group>
         </form>
       </Drawer>
+      <HistoryDrawer
+        parkingLotId={selectedParkingLotId}
+        onClose={() => {
+          setSelectedParkingLotId(null);
+          closeHistoryDrawer();
+        }}
+      />
       <Dialog
         opened={!!selectedParkingLot}
         onClose={() => setSelectedParkingLot(null)}

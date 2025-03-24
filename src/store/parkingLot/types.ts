@@ -3,6 +3,7 @@ import {
   Image,
   ParkingLot,
   ParkingLotAvailability,
+  ParkingLotHistory,
   ParkingLotStatus,
   PaymentMethod,
   Service,
@@ -25,6 +26,10 @@ export interface ParkingLotDto {
   images?: Image[];
   paymentMethods?: PaymentMethod[];
   services?: Service[];
+}
+
+export interface ParkingLotHistories {
+  [idParkingLot: string]: { records: ParkingLotHistory[] };
 }
 
 export const sanitizeParkingLotData = (values: ParkingLot): ParkingLotDto => {

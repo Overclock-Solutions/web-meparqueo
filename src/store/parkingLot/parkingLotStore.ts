@@ -2,16 +2,18 @@ import { create } from 'zustand';
 import api from '../../service/api';
 import { API_ENDPOINTS, ApiResponse } from '../../types/api';
 import { extractErrorMessage } from '../helpers';
-import { ParkingLot } from '../models';
-import { ParkingLotDto } from './types';
+import { ParkingLot, ParkingLotHistory } from '../models';
+import { ParkingLotDto, ParkingLotHistories } from './types';
 
 interface ParkingLotStore {
   parkingLots: ParkingLot[];
+  histories: ParkingLotHistories;
   loading: {
     get: boolean;
     create: boolean;
     update: boolean;
     delete: boolean;
+    getHistory: boolean;
   };
   errors: string[];
   createParkingLot: (dto: Partial<ParkingLotDto>) => Promise<ParkingLot>;
@@ -21,17 +23,20 @@ interface ParkingLotStore {
     dto: Partial<ParkingLotDto>,
   ) => Promise<ParkingLot>;
   deleteParkingLot: (id: string) => Promise<void>;
+  getHistory: (id: string) => Promise<ParkingLotHistory[]>;
   resetState: () => void;
   clearError: () => void;
 }
 
 export const useParkingLotStore = create<ParkingLotStore>((set) => ({
   parkingLots: [],
+  histories: {},
   loading: {
     get: false,
     create: false,
     update: false,
     delete: false,
+    getHistory: false,
   },
   errors: [],
   createParkingLot: async (dto) => {
@@ -135,9 +140,34 @@ export const useParkingLotStore = create<ParkingLotStore>((set) => ({
         create: false,
         update: false,
         delete: false,
+        getHistory: false,
       },
       errors: [],
     }));
   },
   clearError: () => set({ errors: [] }),
+  getHistory: async (id) => {
+    set((state) => ({
+      loading: { ...state.loading, getHistory: true },
+      errors: [],
+    }));
+    try {
+      const response = await api.get<ApiResponse<ParkingLotHistory[]>>(
+        API_ENDPOINTS.parkingLot.getHistory(id),
+      );
+      const history = response.data.data;
+      set((state) => ({
+        histories: { ...state.histories, [id]: { records: history } },
+        loading: { ...state.loading, getHistory: false },
+      }));
+      return history;
+    } catch (error) {
+      const errMsg = extractErrorMessage(error);
+      set((state) => ({
+        errors: [...state.errors, errMsg],
+        loading: { ...state.loading, getHistory: false },
+      }));
+      throw new Error(errMsg);
+    }
+  },
 }));
