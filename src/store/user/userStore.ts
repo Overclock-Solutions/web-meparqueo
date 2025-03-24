@@ -21,6 +21,7 @@ interface UserStore {
   updateUser: (id: string, dto: UpdateUserDto) => Promise<User>;
   deleteUser: (id: string) => Promise<void>;
   changePassword: (id: string, dto: UpdatePasswordDto) => Promise<User>;
+  resetState: () => void;
   clearError: () => void;
 }
 
@@ -185,6 +186,19 @@ export const useUserStore = create<UserStore>((set) => ({
       }));
       throw new Error(errMsg);
     }
+  },
+  resetState: () => {
+    set(() => ({
+      users: [],
+      loading: {
+        get: false,
+        getOne: false,
+        create: false,
+        update: false,
+        delete: false,
+      },
+      errors: [],
+    }));
   },
   clearError: () => {
     set({ errors: [] });

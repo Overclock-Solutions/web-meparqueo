@@ -17,6 +17,7 @@ interface NodeStore {
   getNodes: () => Promise<Node[]>;
   updateNode: (id: string, dto: Partial<Node>) => Promise<Node>;
   deleteNode: (id: string) => Promise<void>;
+  resetState: () => void;
   clearError: () => void;
 }
 
@@ -116,6 +117,18 @@ export const useNodeStore = create<NodeStore>((set) => ({
       }));
       throw new Error(errMsg);
     }
+  },
+  resetState: () => {
+    set(() => ({
+      nodes: [],
+      loading: {
+        get: false,
+        create: false,
+        update: false,
+        delete: false,
+      },
+      errors: [],
+    }));
   },
   clearError: () => set({ errors: [] }),
 }));

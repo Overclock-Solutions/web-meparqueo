@@ -11,6 +11,8 @@ import {
   IconParking,
 } from '@tabler/icons-react';
 import { useAuthStore } from '../../store/auth/authStore';
+import { useUserStore } from '../../store/user/userStore';
+import { useNodeStore } from '../../store/node/nodeStore';
 import './styles.css';
 
 interface SidebarToggleEvent extends Event {
@@ -20,6 +22,9 @@ interface SidebarToggleEvent extends Event {
 function Sidenav({ children }: { children: ReactNode }) {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
+  const resetStateAuth = useAuthStore((state) => state.resetState);
+  const resetStateUser = useUserStore((state) => state.resetState);
+  const resetStateNode = useNodeStore((state) => state.resetState);
 
   useEffect(() => {
     const sidebarToggle = document.body.querySelector('#sidebarToggle');
@@ -43,6 +48,9 @@ function Sidenav({ children }: { children: ReactNode }) {
   const handleLogout = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     logout();
+    resetStateAuth();
+    resetStateUser();
+    resetStateNode();
   };
 
   return (

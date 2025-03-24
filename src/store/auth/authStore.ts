@@ -14,6 +14,7 @@ interface AuthState {
   login: (credentials: LoginDto) => Promise<User>;
   getMe: () => Promise<User>;
   logout: () => void;
+  resetState: () => void;
   clearError: () => void;
 }
 
@@ -67,7 +68,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
   logout: () => {
     localStorage.removeItem('token');
-    set({ user: null, isAuthenticated: false });
+  },
+  resetState: () => {
+    set(() => ({
+      user: null,
+      isAuthenticated: false,
+      isLoading: false,
+      errors: [],
+    }));
   },
   clearError: () => {
     set({ errors: [] });
