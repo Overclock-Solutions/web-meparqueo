@@ -47,6 +47,23 @@ import api from '../../service/api';
 import HeadPage from '../../components/HeadPage';
 import { sanitizeParkingLotData } from '../../store/parkingLot/types';
 
+// dnd kit imports
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
 // Subcomponent: Debounced Number Input
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const DebouncedNumberInput = ({ value, onChange, ...props }: any) => {
@@ -93,6 +110,31 @@ const ImagePreview = React.memo(
     </div>
   ),
 );
+
+// Subcomponent: Sortable Image Preview con dnd kit
+const SortableImagePreview = ({
+  image,
+  onRemove,
+}: {
+  image: { key: string; url: string };
+  onRemove: () => void;
+}) => {
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({
+      id: image.key,
+    });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <ImagePreview image={image} onRemove={onRemove} />
+    </div>
+  );
+};
 
 // Subcomponent: Form Fields (memoized)
 const FormFields = React.memo(
@@ -191,16 +233,16 @@ const ParkingLots = () => {
   const { users: usersStore, getUsers, getUsersByRole } = useUserStore();
   const { nodes, getNodes } = useNodeStore();
 
-  // Optimized image state: existing, files to upload, and keys to delete
+  // Estado para imágenes separando las que ya están y las que se subirán (para lógica interna)
   const [imageState, setImageState] = useState<{
     existing: { key: string; url: string }[];
     toUpload: File[];
     toDelete: string[];
   }>({ existing: [], toUpload: [], toDelete: [] });
 
-  // Previews for new images (using URL.createObjectURL)
-  const [imagePreviews, setImagePreviews] = useState<
-    { key: string; url: string }[]
+  // Nuevo estado para mantener el orden de las imágenes (combinando existentes y nuevas)
+  const [orderedImages, setOrderedImages] = useState<
+    { key: string; url: string; isNew: boolean; file?: File }[]
   >([]);
 
   const [opened, { open, close }] = useDisclosure(false);
@@ -273,26 +315,40 @@ const ParkingLots = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [errors]);
 
-  // Optimized submit handler including image upload and deletion
+  // Configurar sensors para dnd kit
+  const sensors = useSensors(useSensor(PointerSensor));
+
+  // Submit handler: se encarga de subir nuevas imágenes, combinar imágenes existentes y actualizar
   const handleSubmit = async (values: ParkingLot) => {
     try {
-      // Upload new images
-      const uploadedImages = await Promise.all(
-        imageState.toUpload.map(async (file) => {
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('path', 'parking-lots');
-          const response = await api.post(API_ENDPOINTS.files.upload, formData);
-          return response.data.data;
+      // Si hay imágenes marcadas para eliminar (de imágenes existentes) se eliminan primero.
+      if (imageState.toDelete.length > 0) {
+        await Promise.all(
+          imageState.toDelete.map((key) =>
+            api.post(API_ENDPOINTS.files.delete, { fileId: key }),
+          ),
+        );
+      }
+
+      // Construir la lista final de imágenes en el orden definido por orderedImages.
+      const finalImages = await Promise.all(
+        orderedImages.map(async (img) => {
+          if (!img.isNew) {
+            // Imagen existente (ya fue subida previamente y no se eliminó)
+            return img;
+          } else {
+            // Imagen nueva: se sube y se utiliza la respuesta
+            const formData = new FormData();
+            formData.append('file', img.file!);
+            formData.append('path', 'parking-lots');
+            const response = await api.post(
+              API_ENDPOINTS.files.upload,
+              formData,
+            );
+            return response.data.data;
+          }
         }),
       );
-
-      const finalImages = [
-        ...imageState.existing.filter(
-          (img) => !imageState.toDelete.includes(img.key),
-        ),
-        ...uploadedImages,
-      ];
 
       const parkingLotData = sanitizeParkingLotData({
         ...values,
@@ -322,58 +378,85 @@ const ParkingLots = () => {
     }
   };
 
-  // Update image state and generate previews when new files are added
-  const handleImageUpdate = useCallback(
-    (newFiles: File[], deletedKeys: string[] = []) => {
-      setImageState((prev) => ({
-        existing: prev.existing.filter((img) => !deletedKeys.includes(img.key)),
-        toUpload: [...prev.toUpload, ...newFiles],
-        toDelete: [...prev.toDelete, ...deletedKeys],
-      }));
+  // Actualiza el estado de imágenes y genera previsualizaciones para nuevos archivos
+  const handleImageUpdate = useCallback((newFiles: File[]) => {
+    // Para cada nuevo archivo se genera la previsualización y se marca como "isNew"
+    const newPreviews = newFiles.map((file) => ({
+      key: `preview-${Date.now()}-${file.name}`,
+      url: URL.createObjectURL(file),
+      isNew: true,
+      file,
+    }));
 
-      const newPreviews = newFiles.map((file) => ({
-        key: `preview-${Date.now()}-${file.name}`,
-        url: URL.createObjectURL(file),
-      }));
-
-      setImagePreviews((prev) => [...prev, ...newPreviews]);
-    },
-    [],
-  );
-
-  // Remove an image from previews or existing images
-  const handleImageRemove = (key: string) => {
-    // If the image exists in the existing images, mark it for deletion
+    // Actualiza la lógica interna para subir: agrega los nuevos archivos
     setImageState((prev) => ({
       ...prev,
-      existing: prev.existing.filter((img) => img.key !== key),
-      toDelete: [...prev.toDelete, key],
+      toUpload: [...prev.toUpload, ...newFiles],
     }));
-    // Also remove from previews (for new uploads)
-    setImagePreviews((prev) => prev.filter((img) => img.key !== key));
+
+    // Actualiza el orden de imágenes combinando las que ya existían con las nuevas
+    setOrderedImages((prev) => [...prev, ...newPreviews]);
+  }, []);
+
+  // Elimina una imagen tanto del listado ordenado como del estado interno
+  const handleImageRemove = (key: string) => {
+    // Eliminar de orderedImages
+    setOrderedImages((prev) => prev.filter((img) => img.key !== key));
+
+    // Verificar si la imagen es existente o nueva
+    if (imageState.existing.find((img) => img.key === key)) {
+      // Si es existente, marcar para eliminar
+      setImageState((prev) => ({
+        ...prev,
+        existing: prev.existing.filter((img) => img.key !== key),
+        toDelete: [...prev.toDelete, key],
+      }));
+    } else {
+      // Si es nueva, eliminar de la lista de archivos a subir
+      const removed = orderedImages.find((img) => img.key === key);
+      if (removed && removed.isNew && removed.file) {
+        setImageState((prev) => ({
+          ...prev,
+          toUpload: prev.toUpload.filter((file) => file !== removed.file),
+        }));
+      }
+    }
   };
 
-  // Open the form in edit mode with preloaded data and images
+  // Reordenar imágenes al finalizar el drag and drop
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (active.id !== over?.id) {
+      setOrderedImages((items) => {
+        const oldIndex = items.findIndex((item) => item.key === active.id);
+        const newIndex = items.findIndex((item) => item.key === over?.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
+  // Al abrir en modo edición se cargan las imágenes existentes en orderedImages
   const openEdit = (parkingLot: ParkingLot) => {
     form.setValues({
       ...parkingLot,
       nodeIds: parkingLot.nodeIds || [],
     });
+    const existingImgs = parkingLot.images || [];
     setImageState({
-      existing: parkingLot.images || [],
+      existing: existingImgs,
       toUpload: [],
       toDelete: [],
     });
-    setImagePreviews([]);
+    setOrderedImages(existingImgs.map((img) => ({ ...img, isNew: false })));
     setEditMode(true);
     open();
   };
 
-  // Open the form in create mode, resetting form and image states
+  // Abrir en modo creación reinicia formularios y estados
   const openCreate = () => {
     form.reset();
     setImageState({ existing: [], toUpload: [], toDelete: [] });
-    setImagePreviews([]);
+    setOrderedImages([]);
     setEditMode(false);
     open();
   };
@@ -384,7 +467,7 @@ const ParkingLots = () => {
     setSelectedParkingLot(null);
   };
 
-  // Delete parking lot
+  // Eliminar parqueadero
   const handleDelete = async (id: string) => {
     await deleteParkingLot(id);
   };
@@ -514,7 +597,6 @@ const ParkingLots = () => {
             accept="image/*"
             icon={<IconUpload size={18} />}
             mb="sm"
-            // When files are selected, update image state and create previews
             onChange={(files) => {
               if (files && files.length > 0) {
                 handleImageUpdate(files);
@@ -522,15 +604,27 @@ const ParkingLots = () => {
             }}
           />
 
-          <Group mb="lg">
-            {[...imageState.existing, ...imagePreviews].map((image) => (
-              <ImagePreview
-                key={image.key}
-                image={image}
-                onRemove={() => handleImageRemove(image.key)}
-              />
-            ))}
-          </Group>
+          {/* Envolver las previsualizaciones en DndContext para permitir reordenar */}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={orderedImages.map((img) => img.key)}
+              strategy={verticalListSortingStrategy}
+            >
+              <Group mb="lg">
+                {orderedImages.map((image) => (
+                  <SortableImagePreview
+                    key={image.key}
+                    image={image}
+                    onRemove={() => handleImageRemove(image.key)}
+                  />
+                ))}
+              </Group>
+            </SortableContext>
+          </DndContext>
 
           <Group align="end" mt="md">
             <Button variant="default" onClick={closeForm}>
