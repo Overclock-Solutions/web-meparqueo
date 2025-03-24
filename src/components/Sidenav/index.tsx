@@ -2,12 +2,13 @@ import { useEffect, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import CollapseSidenav from './CollapseSidenav';
 import {
-  IconCirclePlus,
   IconDashboard,
   IconLogout,
   IconMenu2,
   IconUser,
   IconUserCircle,
+  IconUsers,
+  IconParking,
 } from '@tabler/icons-react';
 import { useAuthStore } from '../../store/auth/authStore';
 import './styles.css';
@@ -119,30 +120,31 @@ function Sidenav({ children }: { children: ReactNode }) {
                   Dashboard
                 </Link>
 
-                <>
-                  <div className="sb-sidenav-menu-heading">USUARIOS</div>
-                  <CollapseSidenav
-                    icon={<IconUser />}
-                    name="Usuarios"
-                    links={[{ to: '/dashboard/usuarios', name: 'Todos' }]}
-                  />
-                </>
-
                 <div className="sb-sidenav-menu-heading">APLICACIÓN</div>
+                <Link className="nav-link" to={'/dashboard/usuarios'}>
+                  <div className="sb-nav-link-icon">
+                    <IconUsers />
+                  </div>
+                  Usuarios
+                </Link>
 
                 <CollapseSidenav
-                  icon={<IconCirclePlus />}
-                  name="Nodos"
+                  icon={<IconParking />}
+                  name="Parqueaderos"
                   links={[
-                    { to: '/dashboard/items', name: 'Todos' },
-                    { to: '/dashboard/items/categorias', name: 'Categorías' },
+                    { to: '/dashboard/parqueaderos', name: 'Todos' },
+                    { to: '/dashboard/nodos', name: 'Nodos' },
                   ]}
                 />
               </div>
             </div>
             <div className="sb-sidenav-footer">
               <div className="small">Conectado como:</div>
-              Administrador
+              {user?.role === 'ADMIN'
+                ? 'Administrador'
+                : user?.role === 'OWNER'
+                  ? 'Dueño'
+                  : 'Usuario'}
             </div>
           </nav>
         </div>

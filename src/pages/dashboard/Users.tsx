@@ -18,8 +18,10 @@ const Users = () => {
   } = useUserStore();
 
   useEffect(() => {
-    getUsers();
-  }, [getUsers]);
+    if (users.length === 0) {
+      getUsers();
+    }
+  }, [users.length, getUsers]);
 
   useEffect(() => {
     if (errors.length > 0) {

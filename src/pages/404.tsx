@@ -1,6 +1,9 @@
-import { Center, Title } from '@mantine/core';
+import { Center, Title, Button } from '@mantine/core';
+import { useNavigate } from 'react-router-dom';
 
 export default function Custom404() {
+  const navigate = useNavigate();
+
   return (
     <>
       <Center h="100%" pb={120} px={16}>
@@ -15,8 +18,13 @@ export default function Custom404() {
             size={16}
             color="secondary"
           >
-            Esta página no se pudo encontrar.
+            Esta pagina no se pudo encontrar
           </Title>
+          <Center mt={20}>
+            <Button onClick={() => navigate(-1)} color="primary">
+              Volver atrás
+            </Button>
+          </Center>
         </div>
       </Center>
     </>
