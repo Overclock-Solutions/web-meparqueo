@@ -176,7 +176,7 @@ const FormFields = React.memo(
   ),
 );
 
-const ParkingLotsView = () => {
+const ParkingLots = () => {
   const {
     parkingLots,
     loading,
@@ -567,4 +567,4 @@ const ParkingLotsView = () => {
   );
 };
 
-export default ParkingLotsView;
+export default ParkingLots;
