@@ -51,7 +51,7 @@ const Users = () => {
       password: userData.password || '',
       role: userData.role || Role.USER,
       names: userData.person?.names || '',
-      lastnames: userData.person?.lastNames || '',
+      lastNames: userData.person?.lastNames || '',
       phone: userData.person?.phone || '',
       globalStatus: userData.globalStatus,
     };

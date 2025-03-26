@@ -2,7 +2,7 @@ import { Person } from '../models';
 
 export interface CreateUserDto {
   names: string;
-  lastnames: string;
+  lastNames: string;
   email: string;
   phone: string;
   password: string;
@@ -12,7 +12,7 @@ export interface CreateUserDto {
 
 export interface UpdateUserDto {
   names?: string;
-  lastnames?: string;
+  lastNames?: string;
   email?: string;
   phone?: string;
   role?: string;

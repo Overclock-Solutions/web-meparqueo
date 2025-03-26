@@ -416,6 +416,7 @@ const FormFields = React.memo(
           }))}
           {...form.getInputProps('ownerId')}
           mb="sm"
+          searchable
         />
         <MultiSelect
           label="Nodos asociados"
