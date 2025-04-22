@@ -101,7 +101,7 @@ const ImagePreview = React.memo(
         style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8 }}
       />
       <Button
-        variant="light"
+        variant="filled"
         color="red"
         size="xs"
         style={{
@@ -110,10 +110,14 @@ const ImagePreview = React.memo(
           right: 4,
           padding: 2,
           minWidth: 24,
+          zIndex: 99999,
+        }}
+        onPointerDown={(e) => {
+          e.stopPropagation();
         }}
         onClick={onRemove}
       >
-        ×
+        <IconTrash size={16} />
       </Button>
     </div>
   ),
@@ -242,6 +246,7 @@ const HistoryDrawer = ({
     return () => {
       socket.off('updateEstatus', handleStatusUpdate);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parkingLotId, addHistoryItem, socket]);
 
   // Obtenemos el arreglo de ParkingLotHistory desde la propiedad "records"
@@ -260,8 +265,6 @@ const HistoryDrawer = ({
       timelineRef.current.scrollTop = 0;
     }
   }, [records]);
-
-  console.log('History records for parkingLotId:', parkingLotId, records);
 
   return (
     <Drawer
@@ -389,6 +392,11 @@ const FormFields = React.memo(
         <TextInput label="Código" {...form.getInputProps('code')} mb="sm" />
         <TextInput label="Nombre" {...form.getInputProps('name')} mb="sm" />
         <Textarea
+          label="Descripción"
+          {...form.getInputProps('description')}
+          mb="sm"
+        />
+        <Textarea
           label="Dirección"
           {...form.getInputProps('address')}
           mb="sm"
@@ -435,17 +443,87 @@ const FormFields = React.memo(
           mb="sm"
           min={0}
         />
+        <NumberInput
+          label="Precio por hora (Carro)"
+          {...form.getInputProps('priceCarPerHour')}
+          mb="sm"
+          min={0}
+        />
+        <NumberInput
+          label="Precio por hora (Motocicleta)"
+          {...form.getInputProps('priceMotorcyclePerHour')}
+          mb="sm"
+          min={0}
+        />
+        <NumberInput
+          label="Precio por día (Carro)"
+          {...form.getInputProps('priceCarPerDay')}
+          mb="sm"
+          min={0}
+        />
+        <NumberInput
+          label="Precio por día (Motocicleta)"
+          {...form.getInputProps('priceMotorcyclePerDay')}
+          mb="sm"
+          min={0}
+        />
         <TextInput
           label="Teléfono"
           {...form.getInputProps('phoneNumber')}
           mb="sm"
         />
+
+        <NumberInput
+          label="Comodidad"
+          {...form.getInputProps('comfort')}
+          mb="sm"
+          min={0}
+          max={5}
+          step={0.5}
+        />
+
+        <MultiSelect
+          label="Tipos de vehículos aceptados"
+          data={[
+            { label: 'Carro', value: 'CAR' },
+            { label: 'Motocicleta', value: 'MOTORCYCLE' },
+            { label: 'Bicicleta', value: 'BICYCLE' },
+            { label: 'Camión', value: 'TRUCK' },
+            { label: 'Bus', value: 'BUS' },
+          ]}
+          {...form.getInputProps('acceptedVehicleTypes')}
+          mb="sm"
+          searchable
+          clearable
+        />
+
         <MultiSelect
           label="Métodos de pago"
           data={[
             { label: 'Efectivo', value: 'CASH' },
-            { label: 'Tarjeta', value: 'CARD' },
-            { label: 'Transferencia', value: 'TRANSFER' },
+            { label: 'Tarjeta de crédito', value: 'CREDIT_CARD' },
+            { label: 'Tarjeta débito', value: 'DEBIT_CARD' },
+            { label: 'Transferencia bancaria', value: 'BANK_TRANSFER' },
+            { label: 'App de pagos (Nequi, Daviplata)', value: 'PAYMENT_APP' },
+            { label: 'Membresía/Mensualidad', value: 'MEMBERSHIP' },
+            { label: 'Pago por PSE', value: 'PSE' },
+            { label: 'Baloto', value: 'BALOTO' },
+            { label: 'Efecty', value: 'EFECTY' },
+            { label: 'Crédito Cop', value: 'CREDICOP' },
+            { label: 'Crediagro', value: 'CREDIAGRO' },
+            { label: 'Consignación bancaria', value: 'CONSIGNMENT' },
+            { label: 'Pago en línea', value: 'PAY_ONLINE' },
+            { label: 'PayPal', value: 'PAYPAL' },
+            { label: 'Bancolombia a la mano', value: 'BANCOLOMBIA_APP' },
+            { label: 'Davivienda APP', value: 'DAVIVIENDA_APP' },
+            { label: 'Tarjeta regalo', value: 'GIFT_CARD' },
+            { label: 'Puntos de fidelidad', value: 'LOYALTY_POINTS' },
+            { label: 'Nota crédito', value: 'CREDIT_NOTE' },
+            { label: 'Cheque posfechado', value: 'POSTDATED_CHECK' },
+            { label: 'Deducción nómina', value: 'PAYROLL_DEDUCTION' },
+            { label: 'Crédito directo', value: 'CREDIT' },
+            { label: 'Criptomonedas', value: 'CRYPTOCURRENCY' },
+            { label: 'Pago posterior', value: 'PAY_LATER' },
           ]}
           {...form.getInputProps('paymentMethods')}
           mb="sm"
@@ -453,12 +531,43 @@ const FormFields = React.memo(
         <MultiSelect
           label="Servicios"
           data={[
-            { label: 'Vigilancia', value: 'SECURITY' },
+            { label: 'Vigilancia 24/7', value: 'SECURITY' },
+            { label: 'Lavado de autos', value: 'CAR_WASH' },
             { label: 'Cubierto', value: 'COVERED' },
-            { label: 'Lavado', value: 'CAR_WASH' },
+            { label: 'Abierto 24 horas', value: 'TWENTY_FOUR_HOURS' },
+            { label: 'Parqueadero valet', value: 'VALET' },
+            {
+              label: 'Cargador para vehículos eléctricos',
+              value: 'EVC_CHARGER',
+            },
+            { label: 'Área para motos', value: 'MOTORCYCLE_AREA' },
+            { label: 'Espacio para trailers', value: 'TRAILER_PARKING' },
+            { label: 'Parqueadero subterráneo', value: 'UNDERGROUND' },
+            { label: 'Acceso para discapacitados', value: 'DISABLED_ACCESS' },
+            { label: 'Inflado de llantas', value: 'TIRE_INFLATION' },
+            { label: 'Videovigilancia', value: 'VIDEO_SURVEILLANCE' },
+            { label: 'Revisión de aceite', value: 'OIL_CHECK' },
+            { label: 'Carga de baterías', value: 'BATTERY_CHARGE' },
+            { label: 'Inspección técnica', value: 'VEHICLE_INSPECTION' },
+            { label: 'Detallado automotriz', value: 'DETAILING' },
+            { label: 'Servicio de locker', value: 'LOCKER_SERVICE' },
+            { label: 'Baños disponibles', value: 'RESTROOM' },
+            { label: 'Wi-Fi gratuito', value: 'WI_FI' },
+            { label: 'Cafetería', value: 'CAFETERIA' },
+            { label: 'Servicio de grúa', value: 'TOW_SERVICE' },
+            { label: 'Seguro contra daños', value: 'INSURANCE' },
+            { label: 'Área infantil', value: 'CHILD_AREA' },
+            { label: 'Área para mascotas', value: 'PET_AREA' },
+            { label: 'Parqueadero para bicicletas', value: 'BIKE_PARKING' },
+            { label: 'Cambio de llantas', value: 'TIRE_CHANGE' },
+            { label: 'Afinamiento básico', value: 'VEHICLE_TUNING' },
+            { label: 'Plan mensual', value: 'MONTHLY_PLAN' },
+            { label: 'Reserva Anticipada', value: 'ADVANCE_RESERVATION' },
+            { label: 'Carga de celulares', value: 'PHONE_CHARGING' },
           ]}
           {...form.getInputProps('services')}
           mb="sm"
+          searchable
         />
       </>
     );
@@ -517,10 +626,17 @@ const ParkingLots = () => {
         status: ParkingLotStatus.OPEN,
         paymentMethods: [],
         services: [],
-        ownerId: '',
+        ownerId: null,
         nodeIds: [],
         availability: ParkingLotAvailability.NO_AVAILABILITY,
         globalStatus: GlobalStatus.ACTIVE,
+        description: '',
+        priceCarPerHour: 0,
+        priceMotorcyclePerHour: 0,
+        priceCarPerDay: 0,
+        priceMotorcyclePerDay: 0,
+        comfort: 0,
+        acceptedVehicleTypes: [],
       }),
       [],
     ),
@@ -528,7 +644,6 @@ const ParkingLots = () => {
       () => ({
         code: (value) => (value.length < 3 ? 'Código muy corto' : null),
         name: (value) => (value.length < 5 ? 'Nombre muy corto' : null),
-        ownerId: (value) => (!value ? 'Seleccione un propietario' : null),
       }),
       [],
     ),
@@ -668,6 +783,21 @@ const ParkingLots = () => {
     form.setValues({
       ...parkingLot,
       nodeIds: parkingLot.nodeIds || [],
+      paymentMethods: parkingLot.paymentMethods || [],
+      services: parkingLot.services || [],
+      ownerId: parkingLot.ownerId || null,
+      images: parkingLot.images || [],
+      latitude: parkingLot.latitude || 8.746125,
+      longitude: parkingLot.longitude || -75.878538,
+      description: parkingLot.description || '',
+      phoneNumber: parkingLot.phoneNumber || '',
+      price: parkingLot.price || 0,
+      priceCarPerHour: parkingLot.priceCarPerHour || 0,
+      priceMotorcyclePerHour: parkingLot.priceMotorcyclePerHour || 0,
+      priceCarPerDay: parkingLot.priceCarPerDay || 0,
+      priceMotorcyclePerDay: parkingLot.priceMotorcyclePerDay || 0,
+      comfort: parkingLot.comfort || 0,
+      acceptedVehicleTypes: parkingLot.acceptedVehicleTypes || [],
     });
     const existingImgs = parkingLot.images || [];
     setImageState({
@@ -710,6 +840,24 @@ const ParkingLots = () => {
       { accessorKey: 'code', header: 'Código' },
       { accessorKey: 'name', header: 'Nombre' },
       { accessorKey: 'address', header: 'Dirección' },
+      { accessorKey: 'phoneNumber', header: 'Teléfono' },
+      { accessorKey: 'price', header: 'Precio' },
+      {
+        accessorKey: 'priceCarPerHour',
+        header: 'Precio Carro',
+      },
+      {
+        accessorKey: 'priceMotorcyclePerHour',
+        header: 'Precio Moto',
+      },
+      {
+        accessorKey: 'priceCarPerDay',
+        header: 'Precio Carro (Día)',
+      },
+      {
+        accessorKey: 'priceMotorcyclePerDay',
+        header: 'Precio Moto (Día)',
+      },
       {
         accessorKey: 'ownerId',
         header: 'Propietario',

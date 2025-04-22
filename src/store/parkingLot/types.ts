@@ -19,13 +19,20 @@ export interface ParkingLotDto {
   status?: ParkingLotStatus;
   availability?: ParkingLotAvailability;
   globalStatus?: GlobalStatus;
-  ownerId?: string;
+  ownerId?: string | null;
   nodeIds?: string[];
   price?: number;
   phoneNumber?: string;
   images?: Image[];
   paymentMethods?: PaymentMethod[];
   services?: Service[];
+  description?: string;
+  priceCarPerHour?: number;
+  priceMotorcyclePerHour?: number;
+  priceMotorcyclePerDay?: number;
+  priceCarPerDay?: number;
+  comfort?: number;
+  acceptedVehicleTypes?: string[];
 }
 
 export interface ParkingLotHistories {
@@ -42,9 +49,16 @@ export const sanitizeParkingLotData = (values: ParkingLot): ParkingLotDto => {
     status: values.status,
     availability: values.availability,
     globalStatus: values.globalStatus,
-    ownerId: values.ownerId,
+    ownerId: values.ownerId || null,
     nodeIds: values.nodeIds,
     price: values.price,
+    description: values.description,
+    priceCarPerHour: values.priceCarPerHour,
+    priceMotorcyclePerHour: values.priceMotorcyclePerHour,
+    priceMotorcyclePerDay: values.priceMotorcyclePerDay,
+    priceCarPerDay: values.priceCarPerDay,
+    comfort: values.comfort,
+    acceptedVehicleTypes: values.acceptedVehicleTypes,
     phoneNumber: values.phoneNumber,
     images: values.images,
     paymentMethods: values.paymentMethods,
